@@ -63,13 +63,13 @@ spec:
             
             {{- if .Values.externalDB.enabled }}
             - name: DB_USERNAME
-              value: "{{- .Values.externalDB.username }}"
+              {{- .Values.externalDB.username | toYaml | nindent 14 }}
             - name: DB_PASSWORD
-              value: "{{- .Values.externalDB.password }}"
+              {{- .Values.externalDB.password | toYaml | nindent 14 }}
             - name: DB_DATABASE
-              value: "{{- .Values.externalDB.database }}"
+              {{- .Values.externalDB.database | toYaml | nindent 14 }}
             - name: DB_HOST
-              value: "{{- .Values.externalDB.host }}"
+              {{- .Values.externalDB.host | toYaml | nindent 14 }}
             {{- end }}
             {{- if .Values.mariadbOperator.enabled }}
             - name: DB_USERNAME

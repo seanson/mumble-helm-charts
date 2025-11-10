@@ -85,12 +85,12 @@ externalDB:
   # valueFrom:
   #   secretKeyRef:
   #     name: name-of-secret
-  #     key: user
+  #     key: host
   # or:
   # valueFrom:
   #   configMapKeyRef:
   #     name: name-of-configmap
-  #     key: user
+  #     key: host
 
 # snipeit config
 snipeit:
