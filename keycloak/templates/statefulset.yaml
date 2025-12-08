@@ -1,0 +1,146 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "keycloak.fullname" . }}
+  labels:
+    {{- include "keycloak.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "keycloak.fullname" . }}-headless
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "keycloak.selectorLabels" . | nindent 6 }}
+  updateStrategy:
+    type: {{ .Values.updateStrategy }}
+    {{- if eq .Values.updateStrategy "RollingUpdate" }}
+    rollingUpdate:
+      partition: 0
+    {{- end }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "keycloak.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["start"]
+          env:
+            # Database settings and credentials
+            - name: KC_DB
+              value: mariadb
+
+            - name: KC_DB_URL
+              value: "jdbc:mariadb://{{ if .Values.mariadbOperator.useExisting.enabled }}{{ .Values.mariadbOperator.useExisting.mariaDbRef }}-internal.{{ .Values.mariadbOperator.useExisting.namespace }}{{ else }}mariadb-{{ .Release.Name }}-internal.{{ .Release.Namespace }}{{ end }}.svc:3306/keycloak"
+
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keycloak.fullname" . }}-db
+                  key: username
+            
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keycloak.fullname" . }}-db
+                  key: password
+
+            # Admin credentials
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keycloak.fullname" . }}-admin
+                  key: username
+            
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keycloak.fullname" . }}-admin
+                  key: password
+
+            # Proxy configuration
+            - name: KC_PROXY_HEADERS
+              value: {{ .Values.keycloak.proxy.headers }}
+
+            - name: KC_HTTP_ENABLED
+              value: "true"
+
+            - name: KC_HOSTNAME_STRICT
+              value: {{ .Values.keycloak.hostname.strict | quote }}
+
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+
+            # Cache configuration
+            - name: KC_CACHE
+              value: {{ .Values.keycloak.cache.type }}
+
+            # Passing the Pod's IP primary address …
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+
+            # JGroups bind address
+            - name: KC_CACHE_EMBEDDED_NETWORK_BIND_ADDRESS
+              value: '$(POD_IP)'
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+            - name: jgroups
+              containerPort: 7800
+            - name: jgroups-fd
+              containerPort: 57800
+
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

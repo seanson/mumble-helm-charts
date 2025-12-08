@@ -1,0 +1,90 @@
+{{- if .Values.mariadbOperator.enabled }}
+{{- if not .Values.mariadbOperator.useExisting.enabled }}
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: mariadb-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  rootPasswordSecretKeyRef:
+    name: mariadb
+    key: root-password
+    generate: true
+
+  storage:
+    size: 10Gi
+    storageClassName: {{ .Values.mariadbOperator.storageClass }}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+{{- end }}
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Database
+metadata:
+  name: {{ .Values.mariadbOperator.database }}
+  namespace: {{ if .Values.mariadbOperator.useExisting.enabled }}{{ .Values.mariadbOperator.useExisting.namespace }}{{ else }}{{ .Release.Namespace }}{{ end }}
+spec:
+  mariaDbRef:
+    name: {{ if .Values.mariadbOperator.useExisting.enabled }}{{ .Values.mariadbOperator.useExisting.mariaDbRef }}{{ else }}mariadb-{{ .Release.Name }}{{ end }}
+  characterSet: utf8mb4
+  collate: utf8mb4_general_ci
+  cleanupPolicy: Delete
+  requeueInterval: 10h
+  retryInterval: 30s
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: {{ .Values.mariadbOperator.username }}
+  namespace: {{ if .Values.mariadbOperator.useExisting.enabled }}{{ .Values.mariadbOperator.useExisting.namespace }}{{ else }}{{ .Release.Namespace }}{{ end }}
+spec:
+  mariaDbRef:
+    name: {{ if .Values.mariadbOperator.useExisting.enabled }}{{ .Values.mariadbOperator.useExisting.mariaDbRef }}{{ else }}mariadb-{{ .Release.Name }}{{ end }}
+  passwordSecretKeyRef:
+    name: user-{{ .Values.mariadbOperator.username }}
+    key: password
+  maxUserConnections: 20
+  host: "%"
+  cleanupPolicy: Delete
+  requeueInterval: 10h
+  retryInterval: 30s
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: user-{{ .Values.mariadbOperator.username }}
+  namespace: {{ if .Values.mariadbOperator.useExisting.enabled }}{{ .Values.mariadbOperator.useExisting.namespace }}{{ else }}{{ .Release.Namespace }}{{ end }}
+type: Opaque
+stringData:
+  password: "{{ .Values.mariadbOperator.password }}"
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: grant-{{ .Values.mariadbOperator.username }}
+  namespace: {{ if .Values.mariadbOperator.useExisting.enabled }}{{ .Values.mariadbOperator.useExisting.namespace }}{{ else }}{{ .Release.Namespace }}{{ end }}
+spec:
+  mariaDbRef:
+    name: {{ if .Values.mariadbOperator.useExisting.enabled }}{{ .Values.mariadbOperator.useExisting.mariaDbRef }}{{ else }}mariadb-{{ .Release.Name }}{{ end }}
+  privileges:
+    - "ALL PRIVILEGES"
+  database: "{{ .Values.mariadbOperator.database }}"
+  table: "*"
+  username: {{ .Values.mariadbOperator.username }}
+  grantOption: true
+  host: "%"
+  cleanupPolicy: Delete
+  requeueInterval: 10h
+  retryInterval: 30s
+{{- end }}
