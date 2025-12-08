@@ -575,7 +575,3 @@ env:
 - **Source Code**: https://github.com/Syntax3rror404/helm-charts
 - **Keycloak Documentation**: https://www.keycloak.org/documentation
 - **MariaDB Operator**: https://github.com/mariadb-operator/mariadb-operator
-
-## License
-
-This Helm chart is provided as-is. Keycloak is licensed under Apache License 2.0.
